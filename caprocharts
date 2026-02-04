@@ -14,6 +14,9 @@ CSVDATA = "caprolactam-n2o-unfccc.csv"
 # Note: Only EU countries that have or had Caprolactam production
 EUCOUNTRIES = ["EUA", "BEL", "CZE", "DEU", "ESP", "ITA", "NLD", "POL"]
 
+# more bright background grey
+BGCOL = "#eaeaea"
+
 
 def caprochart(start=None, skip=False, skipsmall=False, eu=False):
     cdat = {}
@@ -55,7 +58,8 @@ def caprochart(start=None, skip=False, skipsmall=False, eu=False):
     desc = "Caprolactam Emissions by Country (Source: UNFCCC Common Reporting Tables)"
     fig = plotly.express.line(cdat, markers=True)
     fig.update_layout(yaxis_title="ktN₂O", xaxis_title=desc, legend_title=None,
-                      margin={"l": 0, "r": 0, "b": 0, "t": 0})
+                      margin={"l": 0, "r": 0, "b": 0, "t": 0}, plot_bgcolor=BGCOL,
+                      font={"family": "Roboto,Helvetica,Sans-Serif", "weight": "bold"})
     fig.update_yaxes(rangemode="tozero")
     fig.update_traces(connectgaps=True)
     fig.update_xaxes(dtick="Y1")
