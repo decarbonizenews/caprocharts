@@ -1,0 +1,85 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: 0BSD
+# (c) Hanno Böck, Industry Decarbonization Newsletter
+
+import argparse
+import csv
+
+import pandas
+import plotly.express
+import pycountry
+
+CSVDATA = "caprolactam-n2o-unfccc.csv"
+
+# Note: Only EU countries that have or had Caprolactam production
+EUCOUNTRIES = ["EUA", "BEL", "CZE", "DEU", "ESP", "ITA", "NLD", "POL"]
+
+
+def caprochart(start=None, skip=False, skipsmall=False, eu=False):
+    cdat = {}
+    maxyear = minyear = 2020
+    with open(CSVDATA) as csvfile:
+        cr = csv.DictReader(csvfile)
+        for line in cr:
+            n2o = float(line["Emissions N2O (kt)"])
+            if skipsmall and n2o < 0.05:
+                continue
+            year = int(line["Year"])
+            if start and year < start:
+                continue
+            countrycode = line["Country"]
+            if skip and countrycode in skip:
+                continue
+            if eu and countrycode not in EUCOUNTRIES:
+                continue
+            countryobj = pycountry.countries.get(alpha_3=countrycode)
+            if countryobj:
+                country = countryobj.name
+            elif countrycode == "EUA":
+                country = "European Union"
+            else:
+                country = countrycode
+
+            minyear = min(minyear, year)
+            maxyear = max(maxyear, year)
+            if country not in cdat:
+                cdat[country] = {}
+            cdat[country][year] = n2o
+
+    # Order legend by maximum emissions
+    cdat = dict(sorted(cdat.items(), key=lambda item: max(
+        item[1].values()), reverse=True))
+
+    cdat = pandas.DataFrame(cdat).sort_index()
+
+    desc = "Caprolactam Emissions by Country (Source: UNFCCC Common Reporting Tables)"
+    fig = plotly.express.line(cdat, markers=True)
+    fig.update_layout(yaxis_title="ktN₂O", xaxis_title=desc, legend_title=None,
+                      margin={"l": 0, "r": 0, "b": 0, "t": 0})
+    fig.update_yaxes(rangemode="tozero")
+    fig.update_traces(connectgaps=True)
+    fig.update_xaxes(dtick="Y1")
+    fig.update_xaxes(range=[minyear - 0.2, maxyear + 0.2])
+    return fig
+
+
+ap = argparse.ArgumentParser()
+ap.add_argument("--start", type=int)
+ap.add_argument("--skip", help="Skip contries (comma-separted, 3-letter-code)")
+ap.add_argument("--eu", action="store_true", help="Only European Union")
+ap.add_argument("--skipsmall", action="store_true", help="Skip values < 0.05 kt")
+ap.add_argument("--svg", help="Store SVG file")
+args = ap.parse_args()
+
+if args.skip:
+    skip = args.skip.split(",")
+else:
+    skip = False
+
+fig = caprochart(start=args.start, skip=skip, skipsmall=args.skipsmall, eu=args.eu)
+fig.show()
+
+if args.svg:
+    fig.write_image(args.svg, width=800, height=450)
+else:
+    fig.show()
