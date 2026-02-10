@@ -4,6 +4,7 @@
 
 import argparse
 import csv
+import pathlib
 
 import pandas
 import plotly.express
@@ -17,8 +18,11 @@ EUCOUNTRIES = ["EUA", "BEL", "CZE", "DEU", "ESP", "ITA", "NLD", "POL"]
 # more bright background grey
 BGCOL = "#eaeaea"
 
+JSPREFIX = "window.PLOTLYENV=window.PLOTLYENV || {};"
 
-def caprochart(start=None, skip=False, skipsmall=False, eu=False):
+
+def caprochart(start=None, skip=False, skipsmall=False, eu=False,
+               colors=None):  # noqa: W0102
     cdat = {}
     maxyear = minyear = 2020
     with open(CSVDATA) as csvfile:
@@ -56,7 +60,7 @@ def caprochart(start=None, skip=False, skipsmall=False, eu=False):
     cdat = pandas.DataFrame(cdat).sort_index()
 
     desc = "Caprolactam Emissions by Country (Source: UNFCCC Common Reporting Tables)"
-    fig = plotly.express.line(cdat, markers=True)
+    fig = plotly.express.line(cdat, markers=True, color_discrete_sequence=colors)
     fig.update_layout(yaxis_title="ktN₂O", xaxis_title=desc, legend_title=None,
                       margin={"l": 0, "r": 0, "b": 0, "t": 0}, plot_bgcolor=BGCOL,
                       font={"family": "Roboto,Helvetica,Sans-Serif", "weight": "bold"})
@@ -67,6 +71,17 @@ def caprochart(start=None, skip=False, skipsmall=False, eu=False):
     return fig
 
 
+def figtohtmljs(fig, divid, title):
+    jhtml = fig.to_html(full_html=False, include_plotlyjs=False,
+                        include_mathjax=False, div_id=divid)
+    js = jhtml.split('<script type="text/javascript">')[-1].split("</script>")[0]
+    html = f"<h3>{title}</h3>\n"
+    html += f'<div id="{divid}" class="plotly-graph-div wideplot"></div>\n'
+    html += "<br><br>"
+
+    return html, js
+
+
 ap = argparse.ArgumentParser()
 ap.add_argument("--start", type=int)
 ap.add_argument("--skip", help="Skip contries (comma-separted, 3-letter-code)")
@@ -74,6 +89,7 @@ ap.add_argument("--eu", action="store_true", help="Only European Union")
 ap.add_argument("--skipsmall", action="store_true", help="Skip values < 0.05 kt")
 ap.add_argument("--svg", help="Store SVG file")
 ap.add_argument("--articleimage", action="store_true", help="Create article image (eun2ocapro.svg)")
+ap.add_argument("--makepage", action="store_true", help="Create webpage html/js (n2o.js/n2o.html)")
 args = ap.parse_args()
 
 if args.skip:
@@ -85,12 +101,37 @@ if args.svg:
     fig = caprochart(start=args.start, skip=skip, skipsmall=args.skipsmall, eu=args.eu)
     fig.write_image(args.svg, width=800, height=450)
 elif args.articleimage:
-    fig = caprochart(start=2004, skipsmall=True, eu=True)
+    fig = caprochart(start=2004, skipsmall=True, eu=True,
+                     colors=plotly.express.colors.qualitative.D3)
     fig.update_layout(legend={"yanchor": "top", "y": 0.98,
                               "xanchor": "right", "x": 0.99})
     fig.update_layout(yaxis_title="ktN₂O from Caprolactam (European Union)", xaxis_title=None)
     fig.write_image("eun2ocapro.svg", width=800, height=450)
     fig.show()
+elif args.makepage:
+    html = '<a id="caprocharts"></a>'
+    html += "<h2>N₂O emissions from Caprolactam production</h2>\n"
+    js = ""
+    fig = caprochart(start=1990)
+    fig.update_layout(xaxis_title=None, legend_title=" ")
+    newhtml, newjs = figtohtmljs(fig, "caproall", "Caprolactam N₂O emissions by Country (all)")
+    html += newhtml
+    js += newjs
+    # we skip the first color so both graphics have the same color schema
+    fig = caprochart(skip=["CHN"], start=1990, colors=plotly.express.colors.qualitative.Dark24[1:])
+    fig.update_layout(xaxis_title=None, legend_title=" ")
+    newhtml, newjs = figtohtmljs(fig, "caproreduced",
+                                      "Caprolactam N₂O emissions by Country (without China)")
+    html += newhtml
+    js += newjs
+    fig = caprochart(eu=True, start=1990, colors=plotly.express.colors.qualitative.D3)
+    fig.update_layout(xaxis_title=None, legend_title=" ")
+    newhtml, newjs = figtohtmljs(fig, "caproeu",
+                                 "Caprolactam N₂O emissions by Country (only European Union)")
+    html += newhtml
+    js += newjs
+    pathlib.Path("n2o.js").write_text(js)
+    pathlib.Path("n2o.html").write_text(html)
 else:
     fig = caprochart(start=args.start, skip=skip, skipsmall=args.skipsmall, eu=args.eu)
     fig.show()
