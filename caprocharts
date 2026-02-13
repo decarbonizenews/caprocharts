@@ -6,6 +6,7 @@ import argparse
 import csv
 import pathlib
 
+import jsmin
 import pandas
 import plotly.express
 import pycountry
@@ -130,6 +131,7 @@ elif args.makepage:
                                  "Caprolactam N₂O emissions by Country (only European Union)")
     html += newhtml
     js += newjs
+    js = jsmin.jsmin(js)
     pathlib.Path("n2o.js").write_text(js)
     pathlib.Path("n2o.html").write_text(html)
 else:
