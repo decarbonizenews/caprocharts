@@ -75,7 +75,11 @@ def caprochart(start=None, skip=False, skipsmall=False, eu=False,
 def figtohtmljs(fig, divid, title):
     jhtml = fig.to_html(full_html=False, include_plotlyjs=False,
                         include_mathjax=False, div_id=divid)
-    js = jhtml.split('<script type="text/javascript">')[-1].split("</script>")[0]
+    if '<script type="text/javascript">' in jhtml:  # plotly before v6.6.0
+        splitter = '<script type="text/javascript">'
+    else:  # plotly v6.6.0 and later
+        splitter = "<script>"
+    js = jhtml.split(splitter)[-1].split("</script>")[0]
     html = f"<h3>{title}</h3>\n"
     html += f'<div id="{divid}" class="plotly-graph-div wideplot"></div>\n'
     html += "<br><br>"
